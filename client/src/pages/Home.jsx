@@ -19,7 +19,7 @@ import hrImg from "../assets/HR.png"
 import resumeImg from "../assets/resume.png"
 import pdfImg from "../assets/pdf.png"
 import techImg from "../assets/tech.png"
-import Footer from '../components/footer';
+import Footer from '../components/Footer';
 
 
 
