@@ -1,7 +1,7 @@
 import React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import axios from "axios";
-import maleVideo from "../assets/Videos/male-ai.mp4";
+// import femaleVideo from "../assets/Videos/female-ai.mp4";
 import femaleVideo from "../assets/Videos/female-ai.mp4";
 import Timer from "./Timer";
 import { ServerUrl } from "../App";
@@ -120,7 +120,7 @@ function Step2Interview({ interviewData, onFinish }) {
   const videoRef       = useRef(null);
 
   const currentQuestion = questions[currentIndex];
-  const videoSource     = voiceGender === "male" ? maleVideo : femaleVideo;
+  const videoSource     =  femaleVideo;
 
   // ── speech-to-text ────────────────────────────────────────────────
   const handleTranscript = useCallback((text) => {
@@ -159,9 +159,9 @@ function Step2Interview({ interviewData, onFinish }) {
       const voices = window.speechSynthesis.getVoices();
       if (!voices.length) return;
       const female = voices.find((v) => /zira|samantha|female/i.test(v.name));
-      const male   = voices.find((v) => /david|mark|male/i.test(v.name));
+      // const male   = voices.find((v) => /david|mark|male/i.test(v.name));
       if (female)      { setSelectedVoice(female); setVoiceGender("female"); }
-      else if (male)   { setSelectedVoice(male);   setVoiceGender("male");   }
+      // else if (male)   { setSelectedVoice(male);   setVoiceGender("male");   }
       else             { setSelectedVoice(voices[0]); setVoiceGender("female"); }
     };
     load();
