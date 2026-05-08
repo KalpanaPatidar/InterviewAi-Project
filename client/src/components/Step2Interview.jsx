@@ -109,7 +109,7 @@ function Step2Interview({ interviewData, onFinish }) {
   const [isSubmitting,  setIsSubmitting]  = useState(false);
   const [voiceGender,   setVoiceGender]   = useState("female");
   const [subtitle,      setSubtitle]      = useState("");
-
+const [isAnswerLocked, setIsAnswerLocked] = useState(true);
   // ✅ FIX: score state now tracks cumulative total so it can be displayed as a running score
   const [score,         setScore]         = useState(0);
   // ✅ NEW: track how many questions have been scored so we can show avg
@@ -118,7 +118,7 @@ function Step2Interview({ interviewData, onFinish }) {
   const isMicOnRef     = useRef(true);
   const isAIPlayingRef = useRef(false);
   const videoRef       = useRef(null);
-
+const timerRef = useRef(null);
   const currentQuestion = questions[currentIndex];
   const videoSource     =  femaleVideo;
 
@@ -212,6 +212,7 @@ function Step2Interview({ interviewData, onFinish }) {
         await speakText(`Hi ${userName}...`);
         await speakText("I will ask you a few questions.");
         setIsIntroPhase(false);
+        setIsAnswerLocked(false);
       } else if (currentQuestion) {
         await new Promise((r) => setTimeout(r, 600));
         if (currentIndex === questions.length - 1)
@@ -225,13 +226,24 @@ function Step2Interview({ interviewData, onFinish }) {
   }, [selectedVoice, isIntroPhase, currentIndex]);
 
   // ── timer ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (isIntroPhase || !currentQuestion) return;
-    const id = setInterval(() => {
-      setTimeLeft((p) => { if (p <= 1) { clearInterval(id); return 0; } return p - 1; });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [isIntroPhase, currentIndex]);
+ useEffect(() => {
+  if (isIntroPhase || !currentQuestion) return;
+
+  clearInterval(timerRef.current);
+
+  timerRef.current = setInterval(() => {
+    setTimeLeft((prev) => {
+      if (prev <= 1) {
+        clearInterval(timerRef.current);
+        return 0;
+      }
+
+      return prev - 1;
+    });
+  }, 1000);
+
+  return () => clearInterval(timerRef.current);
+}, [isIntroPhase, currentIndex, currentQuestion]);
 
   useEffect(() => {
     if (!isIntroPhase && currentQuestion) setTimeLeft(currentQuestion.timeLimit || 60);
@@ -251,12 +263,22 @@ function Step2Interview({ interviewData, onFinish }) {
   useEffect(() => { speakTextRef.current    = speakText;    }, [speakText]);
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
 
-  const submitAnswer = useCallback(async () => {
-    if (isSubmittingRef.current) return;
-    stopMic();
-    isSubmittingRef.current = true;
-    setIsSubmitting(true);
+  // const submitAnswer = useCallback(async () => {
+  //   if (isSubmittingRef.current) return;
+  //   stopMic();
+  //   isSubmittingRef.current = true;
+  //   setIsSubmitting(true);
+const submitAnswer = useCallback(async () => {
+  if (isSubmittingRef.current) return;
 
+  stopMic();
+
+  // STOP TIMER IMMEDIATELY
+  clearInterval(timerRef.current);
+
+  isSubmittingRef.current = true;
+  setIsSubmitting(true);
+  setIsAnswerLocked(true);
     const currentQ  = questions[currentIndexRef.current];
     const timeTaken = (currentQ?.timeLimit || 60) - timeLeftRef.current;
 
@@ -305,22 +327,39 @@ function Step2Interview({ interviewData, onFinish }) {
   }, [timeLeft]);
 
   // ── next question ─────────────────────────────────────────────────
-  const handleNext = async () => {
-    stopMic();
+  // const handleNext = async () => {
+  //   stopMic();
 
-    setAnswer("");
-    setFeedback("");
-    feedbackRef.current = "";   // ✅ reset ref too
+  //   setAnswer("");
+  //   setFeedback("");
+  //   feedbackRef.current = "";   // ✅ reset ref too
 
-    if (currentIndex + 1 >= questions.length) {
-      finishInterview();
-      return;
-    }
+  //   if (currentIndex + 1 >= questions.length) {
+  //     finishInterview();
+  //     return;
+  //   }
 
-    await speakText("Alright, let's move to the next question.");
-    setCurrentIndex((p) => p + 1);
-  };
+  //   // await speakText("Alright, let's move to the next question.");
+  //   setCurrentIndex((p) => p + 1);
+  // };
+const handleNext = async () => {
+  stopMic();
 
+  clearInterval(timerRef.current);
+
+  setAnswer("");
+  setFeedback("");
+
+  feedbackRef.current = "";
+
+  if (currentIndex + 1 >= questions.length) {
+    finishInterview();
+    return;
+  }
+
+  setCurrentIndex((p) => p + 1);
+  setIsAnswerLocked(false);
+};
   // ── finish ────────────────────────────────────────────────────────
   const finishInterview = async () => {
     stopMic(); isMicOnRef.current = false; setIsMicOn(false);
@@ -350,11 +389,18 @@ function Step2Interview({ interviewData, onFinish }) {
               className="w-full h-auto object-cover rounded-2xl" />
           </div>
 
-          {subtitle && (
-            <div className="w-full max-w-md bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-sm">
-              <p className="text-gray-700 text-sm font-medium text-center leading-relaxed">{subtitle}</p>
+       
+            <div className="w-full max-w-md bg-gray-50 border border-gray-200 rounded-xl p-4 shadow-sm ">
+              {/* <p className="text-gray-700 text-sm font-medium text-center leading-relaxed"> */}
+                <p
+  className={`text-sm font-medium text-center leading-relaxed  ${
+    subtitle
+      ? "text-gray-700"
+      : "text-gray-300"
+  }`}
+> {subtitle || "AI interviewer is waiting..."}</p>
             </div>
-          )}
+         
 
           <div className="w-full max-w-md bg-white border border-gray-200 rounded-2xl shadow-md p-6 space-y-4">
             <div className="flex justify-between items-center">
@@ -397,12 +443,47 @@ function Step2Interview({ interviewData, onFinish }) {
             </div>
           )}
 
-          <textarea
+          {/* <textarea
             value={answer}
             placeholder="Speak your answer — it will appear here automatically. You can also type."
             onChange={(e) => setAnswer(e.target.value)}
-            className="flex-1 bg-gray-100 p-4 sm:p-6 rounded-2xl resize-none outline-none border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition text-gray-800 min-h-[160px]"
-          />
+             disabled={isSubmitting}
+            className="flex-1 bg-gray-100 p-4 sm:p-6 rounded-2xl resize-none outline-none border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition text-gray-800 min-h-[160px] disabled:opacity-70 disabled:cursor-not-allowed"
+          /> */}
+          {/* <textarea
+  value={answer}
+   placeholder="Speak your answer — it will appear here automatically. You can also type."
+           
+  onChange={(e) => {
+    if (!isSubmitting) {
+      setAnswer(e.target.value);
+    }
+  }}
+  disabled={isSubmitting}
+  className="flex-1 bg-gray-100 p-4 sm:p-6 rounded-2xl resize-none outline-none border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition text-gray-800 min-h-[160px] disabled:opacity-70 disabled:cursor-not-allowed"
+/> */}
+<textarea
+  value={answer}
+  onChange={(e) => {
+    if (!isAnswerLocked && !isSubmitting) {
+      setAnswer(e.target.value);
+    }
+  }}
+  disabled={isAnswerLocked || isSubmitting}
+  placeholder={
+    isAnswerLocked
+      ? "Answer input disabled..."
+      : "Speak your answer — it will appear here automatically. You can also type."
+  }
+  className={`flex-1 bg-gray-100 p-4 sm:p-6 rounded-2xl resize-none outline-none border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition text-gray-800 min-h-[160px] 
+     rounded-xl border p-4 outline-none transition-all
+    ${
+      isAnswerLocked || isSubmitting
+        ? "bg-gray-100 cursor-not-allowed opacity-70"
+        : "bg-gray-100"
+    }
+  `}
+/>
 
           {!feedback ? (
             <div className="flex items-center gap-4 mt-6">
@@ -416,7 +497,7 @@ function Step2Interview({ interviewData, onFinish }) {
                 {isMicOn ? <FaMicrophone size={20} /> : <FaMicrophoneSlash size={20} />}
               </motion.button>
 
-              <motion.button onClick={submitAnswer} disabled={isSubmitting} whileTap={{ scale: 0.95 }}
+              <motion.button   type="button" onClick={submitAnswer} disabled={isSubmitting} whileTap={{ scale: 0.95 }}
                 className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-500 text-white py-3 sm:py-4 rounded-2xl shadow-lg hover:opacity-90 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
                 {isSubmitting ? "Submitting..." : "Submit Answer"}
               </motion.button>
