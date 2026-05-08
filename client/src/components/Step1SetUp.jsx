@@ -230,7 +230,7 @@ function Step1SetUp({ onStart }) {
                          disabled={!role || !experience || loading}
                             whileHover={{ scale: 1.03 }}
                             whileTap={{ scale: 1.98 }}
-                            className="w-full disabled:bg-gray-700 bg-green-700 hover:bg-green-700 text-white py-3 rounded-full text-lg font-semibold trnsition duration-300 shadow-md">
+                            className="w-full disabled:bg-gray-700 bg-green-700 hover:bg-green-700 text-white py-3 rounded-full text-lg font-semibold transition duration-300 shadow-md">
                                 {loading?"Starting...":"Start Interview"}
    
 
